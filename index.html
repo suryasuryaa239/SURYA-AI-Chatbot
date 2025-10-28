@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SURYA AI - Console</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the unique dark theme and scrollbar */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            /* Dark background for the entire app */
+            background-color: #0F172A; /* Slate 900 */
+        }
+        .chat-history {
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 70%); /* Subtle Green Glow */
+        }
+        /* Custom scrollbar for aesthetics in dark mode */
+        .chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-history::-webkit-scrollbar-thumb {
+            background-color: #059669; /* Emerald 600 thumb */
+            border-radius: 4px;
+        }
+        .chat-history::-webkit-scrollbar-track {
+            background-color: #1E293B; /* Slate 800 track */
+        }
+
+        /* Ensure smooth transition for all hover effects */
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+        
+    </style>
+</head>
+<body class="flex min-h-screen text-gray-100">
+
+    <!-- Sidebar (Unique: Darker, Emerald Accents) -->
+    <aside class="w-1/5 min-w-[280px] bg-slate-900 p-6 flex flex-col shadow-2xl border-r border-teal-900/50">
+        <div class="flex items-center mb-10">
+            <!-- Stylized Logo/Branding -->
+            <svg class="w-8 h-8 text-emerald-400 mr-3 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <h2 class="text-3xl font-extrabold text-emerald-400 tracking-widest">SURYA AI</h2>
+        </div>
+        
+        <!-- New Chat Button - High contrast, strong shadow -->
+        <button id="newChatBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-extrabold py-3 px-4 rounded-xl transition-all duration-300 shadow-emerald-500/50 shadow-lg transform hover:scale-[1.03] active:scale-100 active:shadow-md">
+            + New Simulation
+        </button>
+        
+        <div class="mt-8 flex-grow">
+            <h3 class="text-lg font-semibold mb-3 text-emerald-300 border-b border-teal-800 pb-2">Recent Protocols</h3>
+            <div id="historyPlaceholder" class="text-sm text-gray-500 italic">
+                (Data log not yet initialized. New session will reset core memory.)
+            </div>
+        </div>
+
+        <!-- File Upload Module - Cleaner look -->
+        <div class="mt-8 border-t border-teal-900 pt-6">
+            <h3 class="text-lg font-semibold mb-3 text-emerald-300">Attach Context File</h3>
+            <input type="file" id="fileUpload" accept=".pdf,.txt,.py,.java,.js,.md" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-none file:text-sm file:font-semibold file:bg-slate-700 file:text-emerald-300 hover:file:bg-slate-600 cursor-pointer transition duration-200">
+            <div id="fileStatus" class="text-sm mt-2 text-yellow-400">File not selected.</div>
+        </div>
+
+        <p class="text-xs mt-6 text-gray-600 text-center border-t border-slate-700 pt-4">Powered by Gemini 2.5 Flash / Protocol: S-A-25</p>
+    </aside>
+
+    <!-- Chatbot Main Interface -->
+    <main id="mainChatArea" class="flex-grow flex flex-col bg-gray-900">
+        <!-- Header - Frosted Glass Effect (Unique) -->
+        <header class="p-4 border-b border-teal-800/50 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10 shadow-xl shadow-slate-900">
+            <h1 class="text-xl font-extrabold text-emerald-300 tracking-wide">Q&A Tech Console: System Active</h1>
+        </header>
+
+        <!-- Chat History Display -->
+        <div id="chatHistory" class="chat-history flex-grow p-6 md:p-10 space-y-6">
+            <!-- Initial AI Welcome Message - NOW IN ENGLISH -->
+            <div class="flex justify-start">
+                <!-- AI Message Bubble: Frosted Glass / Unique Rounding -->
+                <div class="bg-gray-800/80 text-gray-200 p-4 rounded-r-3xl rounded-bl-3xl rounded-tr-sm max-w-4xl shadow-2xl border border-teal-700 backdrop-blur-sm">
+                    <span class="font-bold text-emerald-400">STATUS: ACTIVE (AI Expert):</span> Greetings. I am **SURYA AI**, specialized in **Software Architecture, Cloud Technologies, and Data Science**. I operate as a high-level technical consultant. Do you require assistance with frameworks, infrastructure design, or complex coding challenges? Awaiting your command.
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area (CLI Style) -->
+        <div class="p-5 border-t border-teal-800 bg-slate-900 shadow-inner shadow-teal-900/50">
+            <div class="flex items-center space-x-3">
+                <!-- CLI Cursor Style Prefix -->
+                <span class="text-emerald-400 font-mono text-lg">&gt;</span> 
+                
+                <input type="text" id="userInput" placeholder="Enter Command or Query..." class="flex-grow p-3 border-none rounded-none bg-transparent focus:ring-0 focus:outline-none text-emerald-100 text-lg transition-all" autocomplete="off">
+                
+                <!-- Send Button: Energetic Emerald -->
+                <button id="sendButton" class="bg-emerald-600 hover:bg-emerald-500 text-slate-900 p-3 rounded-xl font-bold transition-all duration-300 shadow-lg shadow-emerald-500/50 disabled:opacity-50 disabled:shadow-md" style="width: 120px;">
+                    Execute
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- API Configuration (Pointing to Local Backend) ---
+        // Ensure this matches your server.js port
+        const BACKEND_URL = "http://localhost:3000";
+
+        // --- DOM Elements ---
+        const chatHistory = document.getElementById('chatHistory');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const fileUpload = document.getElementById('fileUpload');
+        const fileStatus = document.getElementById('fileStatus');
+
+        // --- State Management ---
+        let isGenerating = false;
+        let attachedFile = null; 
+        let fileToken = null;    
+
+        // --- Helper Functions ---
+
+        /** Converts file to Base64 string for sending to the backend */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    const base64String = reader.result.split(',')[1];
+                    const mimeType = file.type || 'application/octet-stream';
+                    resolve({ base64Data: base64String, mimeType: mimeType });
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        /** Appends a message to the UI (UPDATED for Dark/Emerald Theme) */
+        function appendMessage(role, content, displayFile = false) {
+            const isUser = role === 'user';
+            const alignment = isUser ? 'justify-end' : 'justify-start';
+            
+            // New Unique Styles
+            const bgColor = isUser ? 'bg-teal-500 text-slate-900 shadow-xl shadow-teal-500/30' : 'bg-gray-800/80 text-gray-200 shadow-2xl border border-teal-700 backdrop-blur-sm';
+            // Unique Bubble Tail Rounding
+            const corner = isUser ? 'rounded-l-3xl rounded-br-3xl rounded-tl-sm' : 'rounded-r-3xl rounded-bl-3xl rounded-tr-sm'; 
+            
+            const roleText = isUser ? '' : '<span class="font-bold text-emerald-400">AI Expert:</span> ';
+
+            // Create the message box element
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${alignment} transition-all`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `${bgColor} p-4 rounded-2xl ${corner} max-w-4xl`;
+            
+            // Add file info if provided and requested for display
+            if (displayFile && attachedFile) {
+                const fileInfo = document.createElement('p');
+                fileInfo.className = 'text-sm mb-2 italic font-medium ' + (isUser ? 'text-teal-900' : 'text-gray-400');
+                fileInfo.innerHTML = `📄 **Context File:** ${attachedFile.name} (${(attachedFile.size / 1024).toFixed(2)} KB)`;
+                contentDiv.appendChild(fileInfo);
+            }
+
+            const textSpan = document.createElement('span');
+            // Using innerHTML to allow Markdown formatting 
+            textSpan.innerHTML = roleText + content; 
+            contentDiv.appendChild(textSpan);
+
+            messageDiv.appendChild(contentDiv);
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            return messageDiv;
+        }
+
+        // --- Main Chat Submission Logic ---
+        async function sendMessage() {
+            const prompt = userInput.value.trim();
+            if (!prompt || isGenerating) return;
+
+            // 1. Setup UI and state
+            isGenerating = true;
+            sendButton.disabled = true;
+            userInput.value = '';
+
+            // Append user message to UI
+            appendMessage('user', prompt, !!attachedFile);
+            
+            // 2. Prepare API payload for backend
+            const payload = {
+                prompt: prompt,
+                fileToken: fileToken 
+            };
+
+            // Display loading indicator (Spinning gear icon)
+            const loadingIndicator = appendMessage('assistant', '<div class="flex items-center text-emerald-400"><svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Response Protocol Initiated...</div>');
+
+            try {
+                // 3. Call Backend Chat Endpoint
+                const response = await fetch(`${BACKEND_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorDetails = await response.json();
+                    throw new Error(errorDetails.error || `HTTP error! Status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                let assistantText = result.response || "I apologize, but I received an empty response. Please check the backend logs.";
+                
+                // 4. Update UI
+                loadingIndicator.querySelector('div:last-child').innerHTML = assistantText;
+
+            } catch (error) {
+                console.error("Backend Chat Call Failed:", error);
+                loadingIndicator.querySelector('div:last-child').innerHTML = `<span class="text-red-500 font-bold">CRITICAL ERROR:</span> Could not connect to the backend server (Node.js). Please ensure 'server.js' is running on port 3000. Details: ${error.message}`;
+            } finally {
+                isGenerating = false;
+                sendButton.disabled = false;
+                
+                // 5. Cleanup file state after processing
+                if (fileToken) {
+                    fileToken = null;
+                    attachedFile = null;
+                    fileUpload.value = null; // Clear file input
+                    fileStatus.className = 'text-sm mt-2 text-emerald-400 font-semibold';
+                    fileStatus.innerHTML = `File processed. Context buffer cleared.`;
+                }
+            }
+        }
+
+        // --- Event Listeners ---
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        newChatBtn.addEventListener('click', () => {
+            if (isGenerating) return;
+            // Using a custom modal is better, but using confirm for simplicity here
+            if (confirm("New Simulation requested. Are you sure you want to clear all current session memory?")) {
+                chatHistory.innerHTML = `
+                    <div class="flex justify-start">
+                        <div class="bg-gray-800/80 text-gray-200 p-4 rounded-r-3xl rounded-bl-3xl rounded-tr-sm max-w-4xl shadow-2xl border border-teal-700 backdrop-blur-sm">
+                            <span class="font-bold text-emerald-400">STATUS: ACTIVE (AI Expert):</span> New simulation protocol started. SURYA AI is online. How may I assist with your technical query?
+                        </div>
+                    </div>
+                `;
+                // Reset states
+                fileToken = null;
+                attachedFile = null;
+                fileUpload.value = null;
+                fileStatus.className = 'text-sm mt-2 text-yellow-400';
+                fileStatus.innerHTML = 'File not selected.';
+            }
+        });
+        
+        fileUpload.addEventListener('change', async (event) => {
+            attachedFile = event.target.files[0];
+            if (!attachedFile) {
+                fileStatus.className = 'text-sm mt-2 text-yellow-400';
+                fileStatus.innerHTML = 'File not selected.';
+                fileToken = null;
+                return;
+            }
+
+            if (attachedFile.size > 10 * 1024 * 1024) { // Check file size (10MB limit)
+                 fileStatus.className = 'text-sm mt-2 text-red-500 font-bold';
+                 fileStatus.innerHTML = 'Error: File size exceeds 10MB limit.';
+                 attachedFile = null;
+                 fileToken = null;
+                 fileUpload.value = null;
+                 return;
+            }
+
+            fileStatus.className = 'text-sm mt-2 text-emerald-400 animate-pulse';
+            fileStatus.innerHTML = `[PROTOCOL] Encoding **${attachedFile.name}**... Transmitting data packet.`;
+            sendButton.disabled = true;
+
+            try {
+                // 1. Convert to Base64 (on frontend)
+                const encodedData = await fileToBase64(attachedFile);
+
+                // 2. Send Base64 data to the backend's /upload endpoint
+                const response = await fetch(`${BACKEND_URL}/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        base64Data: encodedData.base64Data, 
+                        mimeType: encodedData.mimeType,
+                        fileName: attachedFile.name
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorDetails = await response.json();
+                    throw new Error(errorDetails.error || `HTTP error! Status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // 3. Receive the file token (name) from the backend
+                fileToken = result.fileToken;
+                
+                fileStatus.className = 'text-sm mt-2 text-emerald-400 font-bold';
+                fileStatus.innerHTML = `[SUCCESS] Context file attached: **${attachedFile.name}**. Ready for prompt execution.`;
+                
+            } catch (error) {
+                console.error("File Upload Failed:", error);
+                fileStatus.className = 'text-sm mt-2 text-red-500 font-bold';
+                fileStatus.innerHTML = `[ERROR] Data Transmission Failed: ${error.message}.`;
+                attachedFile = null;
+                fileToken = null;
+                fileUpload.value = null;
+            } finally {
+                sendButton.disabled = false;
+            }
+        });
+
+    </script>
+
+</body>
+</html>
