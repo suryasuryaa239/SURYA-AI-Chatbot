@@ -1,9 +1,20 @@
 {
+  "name": "surya-ai-netlify-backend",
+  "version": "1.0.0",
+  "description": "Dependencies for the Netlify Function (api.js) that runs the Gemini AI backend.",
+  "main": "netlify/functions/api.js",
+  "scripts": {
+    "start": "netlify dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
-    "@google/genai": "^1.27.0",
+    "@google/genai": "^0.1.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "serverless-http": "^4.0.0"
+    "express": "^4.18.2",
+    "serverless-http": "^3.2.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "netlify-cli": "^17.20.0"
   }
 }

@@ -1,13 +1,32 @@
 [build]
-  # No build command needed if your frontend is already pre-built or simple HTML
-  command = "echo 'Building frontend...'" 
-  # This tells Netlify where your deployable files are (e.g., your index.html)
-  publish = "." 
-  # This tells Netlify where your Function code is located
-  functions = "netlify/functions"
+
+Build settings (if needed)
+
+command = ""
+publish = "/* folder where your index.html is located */"
+
+[functions]
+
+Tell Netlify where your serverless functions are located
+
+directory = "netlify/functions"
+
+This sets the base URL for the functions, accessible as /api/*
+
+The function file name is api.js, so the path will be /api/api
+
+To make it accessible via /api/chat and /api/upload, we use redirects below.
+
+--- Redirects (Crucial for clean URLs) ---
 
 [[redirects]]
-  # This rule routes all requests starting with /api/ to your 'api' function.
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
+from = "/api/chat"
+to = "/.netlify/functions/api"
+status = 200
+force = true
+
+[[redirects]]
+from = "/api/upload"
+to = "/.netlify/functions/api"
+status = 200
+force = true
