@@ -1,0 +1,13 @@
+[build]
+  # No build command needed if your frontend is already pre-built or simple HTML
+  command = "echo 'Building frontend...'" 
+  # This tells Netlify where your deployable files are (e.g., your index.html)
+  publish = "." 
+  # This tells Netlify where your Function code is located
+  functions = "netlify/functions"
+
+[[redirects]]
+  # This rule routes all requests starting with /api/ to your 'api' function.
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200

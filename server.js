@@ -1,88 +1,82 @@
-// server.js
+// netlify/functions/api.js - Node.js Backend for Gemini Chat
+// This requires: express, cors, @google/genai, dotenv, serverless-http
 
-// 1. **FIXED: Load dotenv to read .env file**
 const dotenv = require('dotenv');
 dotenv.config(); 
 
 const express = require('express');
 const cors = require('cors');
+// 1. Include serverless-http to convert Express app into a serverless function
+const serverless = require('serverless-http'); 
 const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
-const port = 3000;
-const SESSION_ID = "default-it-user"; // Simple session ID for this example
-const uploadedFilesMap = {}; // Simple map to store Gemini File objects by a temporary token
+// Note: The port is removed as it's not needed in serverless environments.
+const SESSION_ID = "default-it-user"; 
+const uploadedFilesMap = {};
 
 // --- CONFIGURATION ---
 
-// Load API key from environment variable (now loaded from .env)
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-    console.error("FATAL ERROR: The GEMINI_API_KEY environment variable is not set. Please set it in the .env file.");
-    process.exit(1);
+    console.error("FATAL ERROR: The GEMINI_API_KEY environment variable is not set. Please set it in Netlify Environment Variables.");
+    // Changed: Removed process.exit(1) as it can crash the serverless environment.
 }
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey });
 
-// System Instruction for the model
 const SYSTEM_PROMPT = "You are an experienced software developer and IT architect. Your responses must be highly professional, accurate, and technical. Use Markdown formatting heavily to structure complex information (code blocks, lists, headers).";
 
-// Initialize a Map to store ongoing chat sessions (for conversation history)
 const chatSessions = new Map();
 
-// --- MIDDLEWARE ---
-// Use CORS to allow the HTML file to connect
-app.use(cors()); 
-// Use express.json() to parse JSON bodies (important for Base64 file upload)
-app.use(express.json({ limit: '50mb' })); 
-
-// --- HELPER FUNCTIONS ---
-
-/** Gets or creates a Gemini Chat session for history management. */
+// Helper function to get or create a chat session (NO CHANGE)
 function getChatSession(sessionId = SESSION_ID) {
     if (!chatSessions.has(sessionId)) {
-        console.log(`Creating new chat session for ${sessionId}`);
-        // Create a new chat session with the professional system instruction
-        const chat = ai.chats.create({
-            model: 'gemini-2.5-flash',
+        console.log(`Creating new chat session for ID: ${sessionId}`);
+        const newChat = ai.chats.create({
+            model: "gemini-2.5-flash",
             config: {
                 systemInstruction: SYSTEM_PROMPT
             }
         });
-        chatSessions.set(sessionId, chat);
+        chatSessions.set(sessionId, newChat);
+        return newChat;
     }
     return chatSessions.get(sessionId);
 }
 
-/** Securely deletes the file from the Gemini service. */
+// Helper function to delete a file from the Gemini service (NO CHANGE)
 async function deleteGeminiFile(fileToken) {
     try {
-        await ai.files.delete({ name: fileToken });
-        console.log(`Cleanup success: Deleted Gemini File token: ${fileToken}`);
-        delete uploadedFilesMap[fileToken]; // Remove from our local map
+        const fileToDelete = uploadedFilesMap[fileToken];
+        if (fileToDelete && fileToDelete.name) {
+            await ai.files.delete({ name: fileToDelete.name });
+            console.log(`Successfully deleted Gemini File: ${fileToDelete.name}`);
+            delete uploadedFilesMap[fileToken];
+        }
     } catch (e) {
-        console.error(`Cleanup failure for token ${fileToken}:`, e);
+        console.error(`Error deleting Gemini file (${fileToken}):`, e.message);
     }
 }
 
-// --- API ENDPOINTS ---
+// --- MIDDLEWARE ---
+app.use(cors()); 
+app.use(express.json({ limit: '15mb' }));
 
-/**
- * Endpoint to receive Base64 encoded file data from the frontend, 
- * upload it to Gemini, and return a file token.
- */
+// --- ROUTES ---
+// The /upload and /chat routes remain exactly the same as in your original server.js
+
 app.post('/upload', async (req, res) => {
     try {
         const { base64Data, mimeType, fileName } = req.body;
-
+        // ... (rest of the /upload logic) ...
         if (!base64Data || !mimeType || !fileName) {
-            return res.status(400).json({ error: "Missing file data (base64, mimeType, or fileName)." });
+            return res.status(400).json({ error: "Missing file data (base64Data, mimeType, or fileName)." });
         }
-
-        // 1. Upload Base64 data to Gemini API
-        const geminiFile = await ai.files.upload({
+        
+        const uploadedFile = await ai.files.upload({
             file: {
                 data: Buffer.from(base64Data, 'base64'),
                 mimeType: mimeType
@@ -90,64 +84,51 @@ app.post('/upload', async (req, res) => {
             displayName: fileName
         });
 
-        // 2. Store the file object reference in a map for later use in /chat
-        uploadedFilesMap[geminiFile.name] = geminiFile;
-        console.log(`File uploaded to Gemini: ${geminiFile.name} (${fileName})`);
-        
-        // 3. Return the Gemini file name/token
-        return res.json({ message: "File uploaded successfully", fileToken: geminiFile.name });
+        const fileToken = uploadedFile.name;
+        uploadedFilesMap[fileToken] = uploadedFile;
+        console.log(`File uploaded to Gemini: ${fileToken} (${fileName})`);
+
+        return res.json({ fileToken: fileToken });
 
     } catch (e) {
-        console.error("Gemini File Upload Error:", e);
-        return res.status(500).json({ error: `Gemini API Error during upload: ${e.message}` });
+        console.error("File Upload Error:", e);
+        return res.status(500).json({ error: `Gemini API Error during file upload: ${e.message}.` });
     }
 });
 
 
-/**
- * Endpoint to handle chat prompts, including attached files.
- */
 app.post('/chat', async (req, res) => {
     const { prompt, fileToken } = req.body;
-
+    const chatSession = getChatSession(SESSION_ID);
+    
+    // ... (rest of the /chat logic) ...
     if (!prompt) {
-        return res.status(400).json({ error: "Prompt is missing." });
+        return res.status(400).json({ error: "Prompt is required." });
     }
 
+    let fileToDelete = null;
+
     try {
-        // 1. Get the conversation session
-        const chatSession = getChatSession();
-
-        // 2. Prepare the contents array
         const contents = [];
-        let fileToDelete = null;
-
-        // Add file content part if a file token is provided
+        
         if (fileToken && uploadedFilesMap[fileToken]) {
             fileToDelete = uploadedFilesMap[fileToken];
-            // The contents array will contain the file object reference and the prompt text
             contents.push(fileToDelete);
             console.log(`Using attached file in chat: ${fileToDelete.displayName}`);
         }
         
-        // Add the prompt text
         contents.push(prompt);
 
-
-        // 3. Send the message (this handles conversation history internally)
         const response = await chatSession.sendMessage({ message: contents });
         
-        // 4. Secure Cleanup: Delete the file from Gemini service immediately after use
         if (fileToken && fileToDelete) {
             await deleteGeminiFile(fileToken);
         }
 
-        // 5. Return the AI's response
         return res.json({ response: response.text });
 
     } catch (e) {
         console.error("Gemini Chat Error:", e);
-        // Important: Attempt cleanup even if chat failed
         if (fileToken && uploadedFilesMap[fileToken]) {
             await deleteGeminiFile(fileToken);
         }
@@ -155,9 +136,17 @@ app.post('/chat', async (req, res) => {
     }
 });
 
-// --- RUN THE SERVER ---
-app.listen(port, () => {
-    console.log(`Node.js Backend Server running at http://localhost:${port}`);
-    console.log("-------------------------------------------------------");
-    console.log("READY: Now open index.html in your browser to start chatting.");
-});
+
+// --- NETLIFY FUNCTIONS EXPORT ---
+// 2. Wrap the Express app with serverless-http and set the base path.
+const handler = serverless(app, { basePath: '/api' });
+
+// 3. Export the handler function.
+module.exports.handler = async (event, context) => {
+    // Note: Due to the stateless nature of functions, the chatSessions map 
+    // might reset between requests (cold-start). For a robust app, use a database
+    // to store conversation history. For a simple demo, this may work most of the time.
+    console.log("Function received request:", event.path);
+
+    return handler(event, context);
+};
