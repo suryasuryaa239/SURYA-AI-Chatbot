@@ -109,9 +109,9 @@
     </main>
 
     <script>
-        // --- API Configuration (Pointing to Local Backend) ---
-        // Ensure this matches your server.js port
-        const BACKEND_URL = "http://localhost:3000";
+        // --- API Configuration (Removed Localhost URL for Netlify) ---
+        // Netlify Functions are accessed via the /api prefix.
+        // No constant URL is needed here.
 
         // --- DOM Elements ---
         const chatHistory = document.getElementById('chatHistory');
@@ -203,8 +203,8 @@
             const loadingIndicator = appendMessage('assistant', '<div class="flex items-center text-emerald-400"><svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Response Protocol Initiated...</div>');
 
             try {
-                // 3. Call Backend Chat Endpoint
-                const response = await fetch(`${BACKEND_URL}/chat`, {
+                // 3. Call Backend Chat Endpoint using the Netlify Functions path /api/chat
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -224,7 +224,8 @@
 
             } catch (error) {
                 console.error("Backend Chat Call Failed:", error);
-                loadingIndicator.querySelector('div:last-child').innerHTML = `<span class="text-red-500 font-bold">CRITICAL ERROR:</span> Could not connect to the backend server (Node.js). Please ensure 'server.js' is running on port 3000. Details: ${error.message}`;
+                // Updated error message for Netlify deployment
+                loadingIndicator.querySelector('div:last-child').innerHTML = `<span class="text-red-500 font-bold">CRITICAL ERROR:</span> Could not connect to the Netlify API Function. Details: ${error.message}`;
             } finally {
                 isGenerating = false;
                 sendButton.disabled = false;
@@ -294,8 +295,8 @@
                 // 1. Convert to Base64 (on frontend)
                 const encodedData = await fileToBase64(attachedFile);
 
-                // 2. Send Base64 data to the backend's /upload endpoint
-                const response = await fetch(`${BACKEND_URL}/upload`, {
+                // 2. Send Base64 data to the backend's /api/upload endpoint
+                const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
