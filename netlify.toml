@@ -1,19 +1,9 @@
 [build]
-
-For simple frontend deployment, we set publish to the root folder.
-
 command = "echo 'Netlify Build Started'"
 publish = "."
 
 [functions]
-
-This tells Netlify where your serverless functions are located
-
 directory = "netlify/functions"
-
---- Redirects (Crucial for clean URLs) ---
-
-These rules map the /api/* requests to your single 'api' function.
 
 [[redirects]]
 from = "/api/chat"
