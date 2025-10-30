@@ -109,9 +109,8 @@
     </main>
 
     <script>
-        // --- API Configuration (Removed Localhost URL for Netlify) ---
-        // Netlify Functions are accessed via the /api prefix.
-        // No constant URL is needed here.
+        // --- API Configuration ---
+        // Relative paths /api/chat and /api/upload are used.
 
         // --- DOM Elements ---
         const chatHistory = document.getElementById('chatHistory');
@@ -127,6 +126,26 @@
         let fileToken = null;    
 
         // --- Helper Functions ---
+
+        /**
+         * **FIX ADDED**: Asynchronously determines the error message from a failed response.
+         * Tries to parse JSON, but falls back to statusText if parsing fails.
+         */
+        async function getErrorMessage(response) {
+            let errorMsg = `HTTP error! Status: ${response.status} ${response.statusText}`;
+            try {
+                // Try to parse a JSON error body
+                const errorDetails = await response.json();
+                if (errorDetails.error) {
+                    errorMsg = errorDetails.error;
+                }
+            } catch (e) {
+                // This catch block handles the "Unexpected end of JSON input"
+                // It means the error response wasn't JSON.
+                console.warn("Could not parse JSON error response. Falling back to statusText.");
+            }
+            return errorMsg;
+        }
 
         /** Converts file to Base64 string for sending to the backend */
         function fileToBase64(file) {
@@ -147,21 +166,17 @@
             const isUser = role === 'user';
             const alignment = isUser ? 'justify-end' : 'justify-start';
             
-            // New Unique Styles
             const bgColor = isUser ? 'bg-teal-500 text-slate-900 shadow-xl shadow-teal-500/30' : 'bg-gray-800/80 text-gray-200 shadow-2xl border border-teal-700 backdrop-blur-sm';
-            // Unique Bubble Tail Rounding
             const corner = isUser ? 'rounded-l-3xl rounded-br-3xl rounded-tl-sm' : 'rounded-r-3xl rounded-bl-3xl rounded-tr-sm'; 
             
             const roleText = isUser ? '' : '<span class="font-bold text-emerald-400">AI Expert:</span> ';
 
-            // Create the message box element
             const messageDiv = document.createElement('div');
             messageDiv.className = `flex ${alignment} transition-all`;
             
             const contentDiv = document.createElement('div');
             contentDiv.className = `${bgColor} p-4 rounded-2xl ${corner} max-w-4xl`;
             
-            // Add file info if provided and requested for display
             if (displayFile && attachedFile) {
                 const fileInfo = document.createElement('p');
                 fileInfo.className = 'text-sm mb-2 italic font-medium ' + (isUser ? 'text-teal-900' : 'text-gray-400');
@@ -170,7 +185,6 @@
             }
 
             const textSpan = document.createElement('span');
-            // Using innerHTML to allow Markdown formatting 
             textSpan.innerHTML = roleText + content; 
             contentDiv.appendChild(textSpan);
 
@@ -185,25 +199,20 @@
             const prompt = userInput.value.trim();
             if (!prompt || isGenerating) return;
 
-            // 1. Setup UI and state
             isGenerating = true;
             sendButton.disabled = true;
             userInput.value = '';
 
-            // Append user message to UI
             appendMessage('user', prompt, !!attachedFile);
             
-            // 2. Prepare API payload for backend
             const payload = {
                 prompt: prompt,
                 fileToken: fileToken 
             };
 
-            // Display loading indicator (Spinning gear icon)
             const loadingIndicator = appendMessage('assistant', '<div class="flex items-center text-emerald-400"><svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Response Protocol Initiated...</div>');
 
             try {
-                // 3. Call Backend Chat Endpoint using the Netlify Functions path /api/chat
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -211,30 +220,29 @@
                 });
 
                 if (!response.ok) {
-                    const errorDetails = await response.json();
-                    throw new Error(errorDetails.error || `HTTP error! Status: ${response.status}`);
+                    // **FIX APPLIED HERE**
+                    // Use the new helper function to safely get the error message
+                    const errorMsg = await getErrorMessage(response);
+                    throw new Error(errorMsg);
                 }
                 
                 const result = await response.json();
-                
                 let assistantText = result.response || "I apologize, but I received an empty response. Please check the backend logs.";
                 
-                // 4. Update UI
                 loadingIndicator.querySelector('div:last-child').innerHTML = assistantText;
 
             } catch (error) {
                 console.error("Backend Chat Call Failed:", error);
-                // Updated error message for Netlify deployment
-                loadingIndicator.querySelector('div:last-child').innerHTML = `<span class="text-red-500 font-bold">CRITICAL ERROR:</span> Could not connect to the Netlify API Function. Details: ${error.message}`;
+                // Now this error.message will be more descriptive
+                loadingIndicator.querySelector('div:last-child').innerHTML = `<span class="text-red-500 font-bold">CRITICAL ERROR:</span> Could not connect to the backend API. Details: ${error.message}`;
             } finally {
                 isGenerating = false;
                 sendButton.disabled = false;
                 
-                // 5. Cleanup file state after processing
                 if (fileToken) {
                     fileToken = null;
                     attachedFile = null;
-                    fileUpload.value = null; // Clear file input
+                    fileUpload.value = null; 
                     fileStatus.className = 'text-sm mt-2 text-emerald-400 font-semibold';
                     fileStatus.innerHTML = `File processed. Context buffer cleared.`;
                 }
@@ -251,7 +259,6 @@
 
         newChatBtn.addEventListener('click', () => {
             if (isGenerating) return;
-            // Using a custom modal is better, but using confirm for simplicity here
             if (confirm("New Simulation requested. Are you sure you want to clear all current session memory?")) {
                 chatHistory.innerHTML = `
                     <div class="flex justify-start">
@@ -260,7 +267,6 @@
                         </div>
                     </div>
                 `;
-                // Reset states
                 fileToken = null;
                 attachedFile = null;
                 fileUpload.value = null;
@@ -278,7 +284,7 @@
                 return;
             }
 
-            if (attachedFile.size > 10 * 1024 * 1024) { // Check file size (10MB limit)
+            if (attachedFile.size > 10 * 1024 * 1024) { // 10MB limit
                  fileStatus.className = 'text-sm mt-2 text-red-500 font-bold';
                  fileStatus.innerHTML = 'Error: File size exceeds 10MB limit.';
                  attachedFile = null;
@@ -292,10 +298,8 @@
             sendButton.disabled = true;
 
             try {
-                // 1. Convert to Base64 (on frontend)
                 const encodedData = await fileToBase64(attachedFile);
 
-                // 2. Send Base64 data to the backend's /api/upload endpoint
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -307,13 +311,14 @@
                 });
                 
                 if (!response.ok) {
-                    const errorDetails = await response.json();
-                    throw new Error(errorDetails.error || `HTTP error! Status: ${response.status}`);
+                    // **FIX APPLIED HERE**
+                    // Use the new helper function to safely get the error message
+                    const errorMsg = await getErrorMessage(response);
+                    throw new Error(errorMsg);
                 }
 
                 const result = await response.json();
                 
-                // 3. Receive the file token (name) from the backend
                 fileToken = result.fileToken;
                 
                 fileStatus.className = 'text-sm mt-2 text-emerald-400 font-bold';
